@@ -1,0 +1,15 @@
+# 批量添加的验收路线。格式说明见 todo-persistence/expect.yaml 头注。
+
+goal: 连着加三条任务，三条都真的被存下来了
+
+steps:
+  - go: 打开任务列表 http://localhost:4173/ 并读取列表
+    check:
+      - 任务列表里正好有三条任务，标题按顺序就是 context.task_titles 里那三条
+      - header 里的计数器显示「未完成 3」
+
+  - go: 打开统计视图 http://localhost:4173/?view=stats
+    check:
+      - 「总任务数」等于 3
+      - 「未完成」等于 3
+      - 「已完成」等于 0

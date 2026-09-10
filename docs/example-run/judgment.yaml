@@ -1,0 +1,39 @@
+# runs/20260909-1057-todo-persistence/judgment.yaml
+scenario: todo-persistence
+judged_at: 2026-09-09T11:05:00+08:00
+steps:
+  - go: 打开任务列表 http://localhost:4173/ 并读取列表
+    reached: true
+    how: 自己 navigate 到 http://localhost:4173/（干净加载，tab seed），用 get_page_text 读 <main>；header 里的「未完成 N」计数器在 <main> 之外，get_page_text 没带出来，退守 read_page 读 banner 区域（pane 隐藏，read_page 报 Viewport 0x0，但文本正常返回）。context.task_title 替换为「发布路书演示」。
+    check:
+      - fact: 任务列表里正好有一条任务，标题是 context.task_title
+        result: pass
+        evidence: |
+          get_page_text（<main>）原文：
+          添加任务
+          发布路书演示
+
+          重置演示数据
+          read_page 原文：list [ref_11] 下只有一个 listitem [ref_12]，含 checkbox "切换 发布路书演示" 与 generic "发布路书演示"
+        note: 数的是 list 下的 listitem，共 1 条；标题「发布路书演示」与 context.task_title 一致
+      - fact: header 里的计数器显示「未完成 1」
+        result: pass
+        evidence: 'read_page 原文：banner [ref_1] 下 generic "未完成 1" [ref_3]'
+        note: get_page_text 只取 <main>，未带出 header，故退守 read_page
+
+  - go: 打开统计视图 http://localhost:4173/?view=stats
+    reached: true
+    how: 自己 navigate 到 http://localhost:4173/?view=stats（干净加载，tab seed），用 get_page_text 读 <main>，返回的是统计视图内容（总任务数/未完成/已完成）。pane 隐藏，read_page 报 Viewport 0x0，文本工具正常。
+    check:
+      - fact: 「总任务数」等于 1
+        result: pass
+        evidence: |
+          get_page_text 原文：
+          总任务数
+          1
+      - fact: 「未完成」等于 1
+        result: pass
+        evidence: |
+          get_page_text 原文：
+          未完成
+          1

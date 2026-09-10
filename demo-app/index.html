@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>路书演示 · 任务</title>
+<style>
+  :root { color-scheme: light; --line:#e2e8f0; --ink:#0f172a; --muted:#64748b; --accent:#2563eb; }
+  body { margin:0; font:14px/1.6 system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; color:var(--ink); background:#f8fafc; }
+  header { display:flex; align-items:center; gap:16px; padding:14px 24px; background:#fff; border-bottom:1px solid var(--line); }
+  header h1 { font-size:15px; margin:0; font-weight:700; }
+  nav { margin-left:auto; display:flex; gap:14px; }
+  nav a { color:var(--muted); text-decoration:none; }
+  nav a[aria-current="page"] { color:var(--accent); font-weight:600; }
+  .badge { padding:3px 10px; border:1px solid var(--line); border-radius:999px; font-variant-numeric:tabular-nums; }
+  main { max-width:640px; margin:24px auto; padding:0 16px; }
+  .card { background:#fff; border:1px solid var(--line); border-radius:10px; padding:18px; }
+  form { display:flex; gap:8px; margin-bottom:16px; }
+  input[type=text] { flex:1; padding:9px 12px; border:1px solid var(--line); border-radius:8px; font:inherit; }
+  button { padding:9px 16px; border:0; border-radius:8px; background:var(--accent); color:#fff; font:inherit; cursor:pointer; }
+  button.ghost { background:#fff; color:var(--muted); border:1px solid var(--line); }
+  ul { list-style:none; margin:0; padding:0; }
+  li { display:flex; align-items:center; gap:10px; padding:10px 0; border-top:1px solid var(--line); }
+  li:first-child { border-top:0; }
+  li.done span.title { color:var(--muted); text-decoration:line-through; }
+  .empty { color:var(--muted); padding:12px 0; }
+  .warn { margin-top:16px; padding:10px 12px; border-left:3px solid #dc2626; background:#fef2f2; color:#b91c1c; }
+  dl { display:grid; grid-template-columns:auto auto; gap:8px 24px; margin:0; }
+  dt { color:var(--muted); } dd { margin:0; font-weight:600; font-variant-numeric:tabular-nums; }
+</style>
+</head>
+<body>
+<header>
+  <h1>路书演示</h1>
+  <span class="badge" id="counter">未完成 0</span>
+  <nav>
+    <a href="./" id="nav-list">任务</a>
+    <a href="./?view=stats" id="nav-stats">统计</a>
+  </nav>
+</header>
+<main id="app"></main>
+
+<script>
+const KEY = "roadbook_demo_tasks";
+const params = new URLSearchParams(location.search);
+const BUG = params.get("bug") === "optimistic";   // 开启后：只渲染，不落库
+const VIEW = params.get("view") === "stats" ? "stats" : "list";
+
+function load() {
+  try { return JSON.parse(localStorage.getItem(KEY)) || []; } catch { return []; }
+}
+function save(tasks) {
+  try { localStorage.setItem(KEY, JSON.stringify(tasks)); } catch {}
+}
+
+// 内存副本。开了 bug 开关之后它和存储会分叉——
+// 就像乐观 UI 和一个其实拒绝了写入的后端那样分叉。
+let tasks = load();
+
+function render() {
+  document.getElementById("counter").textContent = "未完成 " + tasks.filter(t => !t.done).length;
+  document.getElementById("nav-list").setAttribute("aria-current", VIEW === "list" ? "page" : "false");
+  document.getElementById("nav-stats").setAttribute("aria-current", VIEW === "stats" ? "page" : "false");
+  document.getElementById("app").innerHTML = VIEW === "stats" ? statsView() : listView();
+  if (VIEW === "list") wireList();
+}
+
+function listView() {
+  const items = tasks.length
+    ? `<ul>` + tasks.map((t, i) =>
+        `<li class="${t.done ? "done" : ""}">
+           <input type="checkbox" ${t.done ? "checked" : ""} data-i="${i}" aria-label="切换 ${t.title}"/>
+           <span class="title">${escapeHtml(t.title)}</span>
+         </li>`).join("") + `</ul>`
+    : `<p class="empty">还没有任务。</p>`;
+  return `<div class="card">
+      <form id="add">
+        <input type="text" id="title" placeholder="需要做什么？" autocomplete="off"/>
+        <button type="submit">添加任务</button>
+      </form>
+      ${items}
+    </div>
+    <p style="margin-top:14px"><button class="ghost" id="reset">重置演示数据</button></p>
+    ${BUG ? `<p class="warn">Bug 模式：<code>?bug=optimistic</code> —— 新任务只渲染、从不写入存储。刷新一下就没了。</p>` : ""}`;
+}
+
+function statsView() {
+  const stored = load();                       // 统计页始终读存储，不读内存
+  const open = stored.filter(t => !t.done).length;
+  return `<div class="card">
+      <dl>
+        <dt>总任务数</dt><dd id="stat-total">${stored.length}</dd>
+        <dt>未完成</dt><dd id="stat-open">${open}</dd>
+        <dt>已完成</dt><dd id="stat-done">${stored.length - open}</dd>
+      </dl>
+    </div>
+    <p style="margin-top:14px" class="empty">统计数据从存储里读，所以它显示的是真正被保存下来的东西。</p>`;
+}
+
+function wireList() {
+  document.getElementById("add").addEventListener("submit", e => {
+    e.preventDefault();
+    const input = document.getElementById("title");
+    const title = input.value.trim();
+    if (!title) return;
+    tasks = tasks.concat([{ title, done: false }]);
+    if (!BUG) save(tasks);                     // bug 就在这：渲染新状态，跳过写入
+    input.value = "";
+    render();
+  });
+  document.querySelectorAll('input[type=checkbox]').forEach(box => {
+    box.addEventListener("change", () => {
+      const i = Number(box.dataset.i);
+      tasks[i].done = box.checked;
+      if (!BUG) save(tasks);
+      render();
+    });
+  });
+  document.getElementById("reset").addEventListener("click", () => {
+    tasks = [];
+    save(tasks);
+    render();
+  });
+}
+
+function escapeHtml(s) {
+  return s.replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+}
+
+render();
+</script>
+</body>
+</html>

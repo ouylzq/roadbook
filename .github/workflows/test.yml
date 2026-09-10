@@ -1,0 +1,28 @@
+name: test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  scorer:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install pyyaml
+      - name: 记分器合成用例
+        run: python3 tests/test_judge.py
+      - name: 场景 expect.yaml / intent.md 结构检查
+        run: python3 tests/test_examples.py
+      - name: 场景索引能列出来
+        run: python3 scripts/scenarios.py
+      - name: 原子索引能列出来
+        run: python3 scripts/atoms.py
+      - name: 路书每步四要素 + 【参考】指向真实原子
+        run: python3 tests/lint_playbook.py
+      - name: 原子格式（写法问题只警告）
+        run: python3 tests/lint_atoms.py

@@ -1,0 +1,16 @@
+# run 产出里有你指向的那个环境的真实 id、账号名、余额。别进 git；路书要进 git。
+runs/*
+!runs/.gitkeep
+
+# 环境配置和凭据永不提交。
+config/env.json
+.env
+.env.*
+!.env.example
+
+__pycache__/
+*.pyc
+.DS_Store
+.venv/
+.idea/
+.vscode/

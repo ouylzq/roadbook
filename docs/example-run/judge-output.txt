@@ -1,0 +1,20 @@
+# judge.py 2026-09-09T10:59:52
+── 第 1 步: 打开任务列表 http://localhost:4173/ 并读取列表  (reached=True)
+[PASS]  1.1 任务列表里正好有一条任务，标题是 context.task_title
+    证据: get_page_text（<main>）原文：
+添加任务
+发布路书演示
+
+重置演示数据
+read_page 原文：list [ref_11] 下只有一个 listitem [ref_12]，含 checkbox "切换 发布路书演示" 与 generic "发布路书演示"
+[PASS]  1.2 header 里的计数器显示「未完成 1」
+    证据: read_page 原文：banner [ref_1] 下 generic "未完成 1" [ref_3]
+── 第 2 步: 打开统计视图 http://localhost:4173/?view=stats  (reached=True)
+[PASS]  2.1 「总任务数」等于 1
+    证据: get_page_text 原文：
+总任务数
+1
+[PASS]  2.2 「未完成」等于 1
+    证据: get_page_text 原文：
+未完成
+1
