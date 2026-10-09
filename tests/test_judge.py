@@ -82,13 +82,28 @@ def build_cases(expect: dict) -> dict:
     j["steps"][0]["check"].pop()
     cases["漏一条check"] = (j, BLOCK, "漏答 check 不算判决")
 
+    # go 不再参与镜像检查（2026-09-23 改）：它是导航指令不是断言，重抄一遍换不来
+    # 防造假的保证，却两次制造假阳性（逗号抄成括号、196 字的 go 被「……」缩写）。
+    # 断言仍然逐字锁死——见下面「fact被改写」。
     j = copy.deepcopy(mirror(expect))
-    j["steps"][0]["go"] = "去了别的地方"
-    cases["go被改写"] = (j, BLOCK, "路线不许改写")
+    j["steps"][0]["go"] = "裁判自己写的简写"
+    cases["go写得不一样"] = (j, PASS, "go 以 expect 为准，judgment 里怎么写都不影响判定")
+
+    j = copy.deepcopy(mirror(expect))
+    j["steps"][0].pop("go")
+    cases["go整个省掉"] = (j, PASS, "judgment 里可以不写 go")
 
     j = copy.deepcopy(mirror(expect))
     j["steps"][0]["check"][0]["fact"] = "换成更容易证明的说法"
     cases["fact被改写"] = (j, BLOCK, "期望不许改写")
+
+    # 2026-09-17 实测踩过：裁判把「，标题是」抄成「（标题是」，字面内容没变，
+    # 却因为逗号变括号被判成不镜像——这是记分器的假阳性，不是防造假该拦的东西。
+    j = copy.deepcopy(mirror(expect))
+    j["steps"][0]["check"][0]["fact"] = (
+        j["steps"][0]["check"][0]["fact"].replace("，标题是", "（标题是") + "）"
+    )
+    cases["标点重排但内容不变"] = (j, PASS, "逗号改括号这类无害重排版不该算不镜像")
 
     j = copy.deepcopy(mirror(expect))
     j["steps"][0]["check"][0]["result"] = "应该没问题"

@@ -29,18 +29,19 @@ steps:
 
 代码只有一百多行的记分器和三个索引脚本。这个仓库真正交付的是**一组约定**：文件放哪、写成什么样、
 谁读谁不读、结论怎么算。任何照着这组约定跑的实现——换浏览器工具、换模型、换成 headless 程序——
-产出的 run 都能互相比对、互相复核。规范一共六条，每条对应一份文件：
+产出的 run 都能互相比对、互相复核。规范一共七条，每条对应一份文件：
 
 | 规范 | 文件 | 定了什么 |
 |---|---|---|
 | 场景 | `scenarios/<名>/` | 三份文件：`intent.md`（frontmatter 一句话 + 人定边界，不写步骤）、`expect.yaml`、`playbook.md`。值不同就另开目录 |
 | 期望 | `expect.yaml` | `goal` + 有序 `steps`，每步只有 `go` 和 `check` 两个键；`context.*` 只引用 runner 跑时才知道的事实，期望值写死 |
-| 裁判 | `references/judge-protocol.md` | 独立 agent；每屏自己加载；证据引原文；找不到是 blocked 不是 fail；输出 `judgment.yaml` 与 expect 逐条镜像 |
+| 裁判 | `references/judge-protocol.md` | 独立 agent；每屏自己加载（唯一例外：加载就会消失的纯前端状态，且那一步不许断言后端事实）；证据引原文；找不到是 blocked 不是 fail；输出 `judgment.yaml` 按顺序与 expect 逐条对应，`fact` 逐字不改（`go` 不用抄） |
 | 记分 | `scripts/judge.py` | 退出码 0 PASS / 1 FAIL / 2 BLOCK，只查完备与镜像，不碰语义 |
-| 路书 | `references/exploration-rules.md` | 每步五要素【参考】【目的】【锚点】【动作】【到位标志】；agent 写、进 git、失配即更新 |
-| 原子 | `atoms/README.md` | agent 沉淀的产品节点记忆：frontmatter 一句话 + 它长什么样 + 现象→机制→对策；状态由 PASS run 推导 |
+| 路书 | `references/exploration-rules.md` | 每步五要素【参考】【目的】【锚点】【动作】【到位标志】；agent **勘通一步就记一步**、进 git、失配即改写那一步；半份路书照样是资产——下次照着走到头再往前勘 |
+| 原子 | `atoms/README.md` | agent 沉淀的产品节点记忆：frontmatter 一句话 + 它长什么样 + 现象→机制→对策；状态由 PASS run 推导。写入分两路：已有原子的改动要经**另一次跑批**验证才落盘，全新原子直写，「它长什么样」只由人改 |
+| 运行时 | `references/runtime-contract.md` | 资产层只说能力名（看画面/读页面文本/按引用点…），工具名只许出现在 `references/runtimes/<名字>.md`；加一个运行时 = 加一个文件 |
 
-贯穿六条的是一道**数据流墙**：runner 读 `intent.md`、`playbook.md`、`atoms/`，从不读 `expect.yaml`；
+贯穿七条的是一道**数据流墙**：runner 读 `intent.md`、`playbook.md`、`atoms/`，从不读 `expect.yaml`；
 裁判读 `expect.yaml`、`context.yaml`，从不读路书和原子。裁判的独立性靠这道墙，不靠 prompt 里的"请客观"。
 
 `tests/` 下四个检查就是这套规范的机器可读版本，CI 每次都跑。规范现在是 `v0.1`，
@@ -126,6 +127,54 @@ http://localhost:4173/?bug=optimistic
 一条命令就能复现这套设计的全部理由。真跑出来的一套产物原样放在
 [`docs/example-run/`](docs/example-run/)，可以先看那个再决定要不要装。
 
+## 换一个真实产品：Gitea
+
+`demo-app/` 够用来说清纪律，但证明不了「换一个陌生界面还成不成立」——它是个单 HTML 文件、
+没有后端，状态只活在 localStorage 里。所以仓库里还有第二条路：一个**真实的开源产品**。
+
+```bash
+targets/gitea/launch.sh          # 本地起一个 Gitea 实例（:3100，单文件二进制 + SQLite）
+/roadbook gitea-issue-flow       # 注册 → 建仓库 → 开工单 → 评论 → 关闭
+```
+
+选 Gitea 是因为它三样都占：单文件二进制不用 Docker、界面服务端渲染正文读得到、
+主流程每一步都真的写库——正好对上这套东西的立身之本。取舍和清理方式写在
+[`targets/gitea/README.md`](targets/gitea/README.md)（清理是 `scripts/cleanup_gitea_user.sh <用户名>`）。
+
+这条场景是**首跑探索就 PASS** 的：runner 从 0 步勘出五步路书，裁判自己重新加载工单详情页
+和列表页，抄到的页面原文是「已关闭」、评论正文、以及列表页的「0 开启中 / 1 已关闭」。
+之后两次回放（照写好的路书走）同样 PASS。产物在 `runs/20260930-114022-gitea-issue-flow/`
+（探索那次）和 `runs/20260930-120550-gitea-issue-flow/`（最后一次回放）。
+
+## 换一个不需要起服务的靶子：公网只读
+
+上面两个靶子都要么本地起服务、要么自己造数据。还有两条**什么都不用准备**的场景，被测的是
+公网上现成的大站，全程只读、不登录：
+
+| 场景 | 靶子 | 验什么 |
+|---|---|---|
+| `github-repo-flow` | GitHub 上的 react/react | 仓库页、工单列表、工单详情三屏都加载出对得上的内容 |
+| `gov-policy-doc` | 中国政府网 · 政策频道 | 从「最新政策」挑最新一条国务院文件，核对标题、发文机关、发文字号、成文日期、索引号和归档面包屑 |
+
+```bash
+/roadbook github-repo-flow       # 3 步 8 条
+/roadbook gov-policy-doc         # 3 步 10 条
+```
+
+`gov-policy-doc` 是三条公网场景里**最难**的一条：详情页那份官方文件的元数据表要逐项读
+（索引号、发文机关、发文字号、成文日期、发布日期），还要求它们之间自洽——发文机关要对上
+标题主体、成文日期不能晚于发布日期、面包屑要把文件归在「信息公开 > 国务院文件」下。
+它证明了这套东西不止能点几个链接，还能读一张字段表并做跨字段的一致性判断。
+
+两条都实测 PASS。产物在 `runs/20260930-141820-github-repo-flow/` 和
+`runs/20260930-151453-gov-policy-doc/`——注意 `runs/` 跟其它 run 一样**不进 git**
+（里面有你那台机器跑出来的真实值），自己跑一次就会有。
+
+顺带说清这两条场景里 `context.*` 是怎么处理的，因为它常被写错：**只有「跑的时候才知道」
+的值才用变量**（比如「点开的是哪一条工单」）。写死的地址——`https://www.gov.cn/zhengce/`
+这种——直接写进验收路线，不要为它造一个变量。哪些变量存在、它们上次取的什么值，
+看板「怎么算过」页签里都列着，点一下就插进正文。
+
 ## 接到你自己的产品
 
 一个场景 = 一个目录，里面三份文件，人写两份、agent 写一份：
@@ -173,16 +222,21 @@ runs/20260909-1057-todo-persistence/
 
 ## 诚实的短板
 
-- **还没有 CI 路径。** 全部跑在交互式 agent 会话里。无人值守跑批——Playwright 最大的
-  优势——这里没解决。用 Claude Agent SDK 做 headless 是明摆着的下一步，但没做。
+- **无人值守能跑了，但还没在真正的 CI 里跑过。** `claude -p "/roadbook <场景>"` 配
+  Playwright MCP 已经实测跑通一条真实产品的登录场景（识别运行时 → 回放 → 留事实），
+  形状和坑记在 [`docs/porting.md`](docs/porting.md) 的 Headless / CI 段。
+  但那是在一台开发机上以无头方式跑的，**还没有在 GitHub Actions 这类托管 runner 上验证过**——
+  网络、浏览器依赖、并发都可能再冒出问题。
 - **证据基础很薄。** 一个真实产品、两个场景、六次 run、大约一周；加上本仓库四个演示场景各跑过一次 PASS。
-  [`references/browser-pitfalls.md`](references/browser-pitfalls.md) 里的八个坑全是实测的；
+  [`references/browser-pitfalls.md`](references/browser-pitfalls.md) 里的坑全是实测的；
   但框架的普适性还没被证明。
 - **真花 token。** 五步流程实测：裁判一次约 70–90k tokens、3–7 分钟。把 `expect.yaml`
   从"一堆无序声明"改成**有序路线**之后，裁判的工具调用从 24 次降到 10 次——因为它不用
   自己规划找路了。按这个量级预算，这不是每次提交都能跑的检查。
-- **和工具耦合。** 协议里写着 Claude Code 的浏览器工具名。换 Playwright MCP 之类的
-  移植说明在 [`docs/porting.md`](docs/porting.md)，未经验证。
+- **工具耦合已经拆开，但只验过两套。** 资产层（场景、路书、原子）现在只说能力名，
+  工具名集中在 [`references/runtimes/`](references/runtimes/) 下、一个运行时一个文件，
+  `tests/lint_atoms.py` 机械拦住往资产里写工具名（禁用词从运行时文件自动提取）。
+  加第三套运行时应该只是加一个文件，但**这个"应该"还没被第三套验证过**。
 - **它只回答一个问题。** "这条流程还跑得通吗"，不回答"为什么坏"。日志和数据库取证是
   刻意排除在外的。
 - **渐进式披露是纪律不是机制。** 场景和原子的索引靠 SKILL.md 里的规矩和两个脚本，
@@ -205,19 +259,30 @@ references/
   judge-protocol.md               原样交给裁判 agent
   verdict-rules.md                谁判、PASS/FAIL/BLOCK、共享账号规矩
   exploration-rules.md            路书格式与更新纪律
-  browser-pitfalls.md             八个实测的坑；先读这个
+  browser-pitfalls.md             跟运行时无关的坑；先读这个
+  runtime-contract.md             能力词表 + 资产层不写工具名这条纪律
+  runtimes/
+    claude-pane.md                Claude Code 桌面版浏览器 pane 的绑定与专属坑
+    playwright-mcp.md             无头容器里的绑定与专属坑
 scripts/
   judge.py                        唯一产出结论的代码：判决 → 退出码
   scenarios.py                    列场景供挑选
   atoms.py                        列原子供回忆
   atoms_status.py                 从 PASS run 推导原子状态，生成 atoms/STATUS.md
-scenarios/                        四个演示场景，每个一个目录
+scenarios/                        自带的几个场景，每个一个目录
   todo-persistence/                 加一条，刷新后还在
   todo-batch-add/                   连加三条——和上面是两个场景，不是一个场景带参数
   todo-complete/                    勾一条已完成，状态是存下来的
   todo-reset/                       重置按钮真清了存储，不只是画空
+  gitea-issue-flow/                 开源产品主流程：注册 → 建仓库 → 开工单 → 评论 → 关闭
+  github-repo-flow/                 公网只读：GitHub 仓库 → 工单列表 → 工单详情
+  gov-policy-doc/                   公网只读：中国政府网政策文件，读一整套官方元数据
 atoms/                            agent 沉淀的被测产品记忆；README 是规矩，STATUS 是账本
+config/
+  env.json                        环境说明：demo 靶子的地址（只有 localhost，没有密钥）；
+                                  场景里 `environments.<env>.xxx` 这类引用指的就是它
 demo-app/                         被测的演示应用，bug 可开关
+targets/gitea/                    另一个靶子：真实的开源产品，launch.sh 起、cleanup.sh 清
 tests/                            四项检查：记分器、场景、路书、原子
 docs/
   example-run/                    一次真实 run 的全部产物

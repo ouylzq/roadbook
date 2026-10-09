@@ -6,6 +6,17 @@
 每步必须：
   - 有【参考】，值是 atoms/ 里存在的文件名，或 —
   - 四要素齐全：【目的】【锚点】【动作】【到位标志】
+  - 编号从 1 连续排下来，不断档、不重号
+
+路书是**边勘边记**的：勘通一步记一步，失配就改写那一步。所以它随时可能只记到一半——
+**半份路书是合法资产，不是半成品**，下次照着走到头再往前勘。但"只记到一半"和"根本没记"
+是两回事：`playbook.md` 一旦存在就必须至少有一个完整的步骤，占位文本不算。
+连续编号这条也是渐进式带来的——一步步追加和改写，编号断档是真会发生的事。
+
+另有一条**警告**（不拦提交）：路书里出现运行时的具体工具名。路书是资产，
+要能在不同运行时上回放，工具名会把它钉死在一套工具上。禁用词从
+references/runtimes/*.md 自动提取，和 lint_atoms.py 同一份。原子上这是错误，
+路书上先给警告——路书由 agent 维护，下次勘到那一步时会改写它。
 
 格式见 references/exploration-rules.md。这是把"写不出到位标志就是没勘明白"和
 "每步都得说清失配时翻哪本手册"从纪律变成校验。
@@ -13,6 +24,8 @@
 import re
 import sys
 from pathlib import Path
+
+from lint_atoms import TOOL_NAMES
 
 ROOT = Path(__file__).resolve().parent.parent
 ATOMS = {p.stem for p in (ROOT / "atoms").glob("*.md")} - {"README", "STATUS"}
@@ -35,6 +48,17 @@ def steps_of(text: str) -> list[tuple[str, str]]:
     return out
 
 
+def tool_name_warnings(rel: Path, text: str) -> list[str]:
+    hits = sorted(
+        tok for tok in TOOL_NAMES
+        if re.search(rf"(?<![A-Za-z0-9_]){re.escape(tok)}(?![A-Za-z0-9_])", text)
+    )
+    if not hits:
+        return []
+    return [f"{rel}: 出现运行时工具名 {', '.join(repr(h) for h in hits)}"
+            f"——换个运行时回放就废了，改成 references/runtime-contract.md 的能力词"]
+
+
 def lint(path: Path) -> list[str]:
     errs: list[str] = []
     rel = path.relative_to(ROOT)
@@ -43,8 +67,13 @@ def lint(path: Path) -> list[str]:
         errs.append(f"{rel}: 文件头缺「最后勘路：<日期>」")
     steps = steps_of(text)
     if not steps:
-        errs.append(f"{rel}: 没找到任何步骤（「## 步骤」下要有 `1. ` 开头的条目）")
+        errs.append(f"{rel}: 没找到任何步骤（「## 步骤」下要有 `1. ` 开头的条目）"
+                    "——路书可以只记到一半，但不能一步都没有；占位文本不是路书")
         return errs
+    nums = [int(n) for n, _ in steps]
+    if nums != list(range(1, len(nums) + 1)):
+        errs.append(f"{rel}: 步骤编号应该是 1..{len(nums)} 连续排下来，实际是 {nums}"
+                    "——边勘边记时追加或改写错了位置")
     for num, body in steps:
         m = REF_RE.search(body)
         if not m:
@@ -59,16 +88,23 @@ def lint(path: Path) -> list[str]:
 
 def main() -> int:
     if not PLAYBOOKS:
-        print("scenarios/ 下没有 playbook.md（首跑探索后才会生成），跳过")
+        print("scenarios/ 下没有 playbook.md（agent 勘通第一步时才会生成），跳过")
         return 0
     all_errs: list[str] = []
+    all_warns: list[str] = []
     for pb in PLAYBOOKS:
+        text = pb.read_text(encoding="utf-8")
         errs = lint(pb)
-        print(f"  {'ok  ' if not errs else '失败'} {pb.relative_to(ROOT)}  ({len(steps_of(pb.read_text(encoding='utf-8')))} 步)")
+        warns = tool_name_warnings(pb.relative_to(ROOT), text)
+        flag = "失败" if errs else ("警告" if warns else "ok  ")
+        print(f"  {flag} {pb.relative_to(ROOT)}  ({len(steps_of(text))} 步)")
         all_errs += errs
+        all_warns += warns
     for e in all_errs:
-        print(f"       {e}")
-    print(f"\n{len(PLAYBOOKS) - len({e.split(':')[0] for e in all_errs})}/{len(PLAYBOOKS)} 份路书合规")
+        print(f"       错误 {e}")
+    for w in all_warns:
+        print(f"       警告 {w}")
+    print(f"\n{len(PLAYBOOKS) - len({e.split(':')[0] for e in all_errs})}/{len(PLAYBOOKS)} 份路书合规，{len(all_warns)} 条写法警告")
     return 1 if all_errs else 0
 
 

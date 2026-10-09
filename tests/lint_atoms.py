@@ -7,6 +7,11 @@
 错误（退出码 1）：
   - 开头缺 frontmatter（name / description），或 name 和文件名不一致，或 description 不是一句完整的话（25～90 字）
   - 缺「## 它长什么样」
+  - 出现了运行时的具体工具名——资产层只许用能力词表，见 references/runtime-contract.md。
+    禁用词不是写死的：从 references/runtimes/*.md 的「能力绑定」表里自动提取，
+    所以**新加一个运行时，这项检查自动覆盖它的工具名**，不用改这个脚本。
+  - 正文里出现了来源 / 票的标记（跑批 id、候选 id、HTML 注释）——来源和票记在运行时的账本里，
+    正文只写教训，见 atoms/README.md「谁能写」
 
 警告（只打印）：
   - 写成了日志：出现日期、或"本轮/今天/刚才/那次/上次/我把/我点"这类叙事词 ≥ 3 处
@@ -26,15 +31,42 @@ import yaml
 ROOT = Path(__file__).resolve().parent.parent
 ATOMS = sorted(p for p in (ROOT / "atoms").glob("*.md") if p.stem not in ("README", "STATUS"))
 
+RUNTIMES = ROOT / "references" / "runtimes"
+
 FM_RE = re.compile(r"\A---\n(.*?)\n---\n", re.S)
 DATE_RE = re.compile(r"\b20\d{2}-\d{2}-\d{2}\b")
 NARRATION = ("本轮", "今天", "刚才", "那次", "上次", "我把", "我点", "我在", "当时", "结果报")
 PROCEDURE_RE = re.compile(r"(第[一二三四五六七八九十\d]+步|^\s*\d+\.\s)", re.M)
+# 来源和票不进正文：跑批 id（20260924-1030-login 这种）、候选 id（8 位十六进制）、HTML 注释
+PROVENANCE_RE = re.compile(r"<!--|\brun_id\b|\b20\d{6}-\d{4,6}-[a-z][a-z0-9-]*\b|候选\s*[0-9a-f]{6,}|\[[0-9a-f]{8}\]")
 MIN_DESC, MAX_DESC, MAX_LINES, MAX_NARRATION_HITS = 25, 90, 65, 3
 
 
 def cjk_len(s: str) -> int:
     return len(s.replace(" ", ""))
+
+
+def runtime_tool_names() -> dict[str, str]:
+    """从各运行时文件的「能力绑定」表里抽出工具名 → 它属于哪个运行时。
+
+    不写死任何名字：加一份 references/runtimes/<新的>.md，这里自动认出它的工具。
+    只认表格行（以 | 开头）里反引号包着的标识符，所以正文里提到工具名不受影响。
+    """
+    names: dict[str, str] = {}
+    for rt in sorted(RUNTIMES.glob("*.md")):
+        body = rt.read_text(encoding="utf-8")
+        m = re.search(r"^## 能力绑定\s*$(.*?)(?=^## |\Z)", body, re.M | re.S)
+        if not m:
+            continue
+        for line in m.group(1).splitlines():
+            if not line.lstrip().startswith("|"):
+                continue
+            for tok in re.findall(r"`([A-Za-z_][A-Za-z0-9_]*)`", line):
+                names.setdefault(tok, rt.stem)
+    return names
+
+
+TOOL_NAMES = runtime_tool_names()
 
 
 def section(body: str, title: str) -> str:
@@ -68,6 +100,18 @@ def check(path: Path) -> tuple[list[str], list[str]]:
 
     if not section(text, "它长什么样").strip():
         errs.append(f"{rel}: 缺「## 它长什么样」（失败者要靠它确认自己站在对的地方）")
+
+    for tok, rt in sorted(TOOL_NAMES.items()):
+        if re.search(rf"(?<![A-Za-z0-9_]){re.escape(tok)}(?![A-Za-z0-9_])", text):
+            errs.append(
+                f"{rel}: 出现了运行时工具名 {tok!r}（属于 {rt}）——原子要换一套工具跑就废了。"
+                f"改成 references/runtime-contract.md 的能力词；这个坑只在该运行时成立的话，"
+                f"整条搬去 references/runtimes/{rt}.md"
+            )
+
+    if PROVENANCE_RE.search(text):
+        errs.append(f"{rel}: 正文里出现了来源 / 票的标记（跑批 id、候选 id、HTML 注释）——"
+                    f"来源和票记在运行时的账本里，正文只写教训（atoms/README.md「谁能写」）")
 
     hits = len(DATE_RE.findall(text)) + sum(text.count(w) for w in NARRATION)
     if hits >= MAX_NARRATION_HITS:

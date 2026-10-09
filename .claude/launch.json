@@ -6,6 +6,12 @@
       "runtimeExecutable": "python3",
       "runtimeArgs": ["-m", "http.server", "4173", "--directory", "demo-app"],
       "port": 4173
+    },
+    {
+      "name": "gitea",
+      "runtimeExecutable": "sh",
+      "runtimeArgs": ["targets/gitea/launch.sh"],
+      "port": 3100
     }
   ]
 }

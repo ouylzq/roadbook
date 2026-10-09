@@ -1,6 +1,8 @@
 ---
 name: todo-complete
 description: 演示应用「任务列表」的完成状态：加两条、把第一条勾成已完成，刷新后计数器和统计页仍显示已完成 1。验的是勾选写进了存储还是只画了删除线。
+envs: [demo]
+default_env: demo
 ---
 
 # 场景：标记完成（演示）

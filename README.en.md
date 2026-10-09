@@ -24,10 +24,16 @@ different model, a headless program) produces runs that can be compared and re-c
 against each other. Six conventions, one file each: the **scenario** directory (three files,
 no steps in `intent.md`), the **expectation** format (`goal` + ordered `steps`, each with
 only `go` and `check`), the **judge** protocol (independent agent, every screen self-loaded,
-evidence quoted verbatim, mirrored `judgment.yaml`), the **scorer** (exit 0/1/2,
-completeness only), the **playbook** format (five fields per step, agent-written, in git),
-and **atoms** (agent-written product memory, status derived from PASS runs). A data-flow
-wall runs through all six: the runner never reads `expect.yaml`, the judge never reads the
+evidence quoted verbatim, `judgment.yaml` mirrored step-for-step with each `fact` copied
+verbatim (the `go` line is not retyped) — the one exception to self-loading is
+state that a reload would destroy, and such a step may not assert backend facts), the **scorer** (exit 0/1/2,
+completeness only), the **playbook** format (five fields per step, recorded one step at a
+time as the agent verifies it, in git — a half-finished playbook is still an asset),
+and **atoms** (agent-written product memory, status derived from PASS runs; writes are gated —
+a change to an *existing* atom must be confirmed by a *different* run before it lands, a brand-new
+atom lands directly because nothing depends on it yet, and the canonical description is only ever
+changed by a human). A data-flow
+wall runs through all seven: the runner never reads `expect.yaml`, the judge never reads the
 playbook or atoms. `tests/` is the machine-readable form of the spec. It is `v0.1` and will
 change as it meets more products.
 
@@ -64,7 +70,8 @@ So the design separates three things people usually conflate:
 One scenario is one directory with three files — two written by you, one by the agent:
 `intent.md` (a `name`/`description` frontmatter for picking, then goal, fixed parameters,
 red lines, seeding and cleanup — no steps), `expect.yaml` (the judge's ordered route), and
-`playbook.md` (generated on the first exploratory run, replayed and rewritten afterwards —
+`playbook.md` (written one verified step at a time, replayed as far as it goes and then
+extended or rewritten step by step —
 its git diff *is* your UI change log). Variants of the same route with different values are
 separate scenario directories, not parameters. `scripts/scenarios.py` lists scenarios one
 line each so the agent can pick without loading every file.
@@ -73,14 +80,24 @@ The repo ships four demo scenarios against a single-file demo app, one of which 
 deliberate `?bug=optimistic` mode that renders but never persists — a screenshot assertion
 passes it, the judge fails it. A real run's artifacts are in [docs/example-run/](docs/example-run/).
 
+There is also a fifth scenario, `gitea-issue-flow`, pointed at a **third-party open-source
+product** rather than anything written here for the demo: `targets/gitea/launch.sh` brings up
+a local Gitea (single binary + SQLite, no Docker), and the scenario walks sign-up → create
+repository → open issue → comment → close. It passed on its first exploratory run, which is
+the only evidence so far that the discipline isn't shaped by one particular UI.
+
 ## Honest limitations
 
 No CI path yet (everything runs in an interactive agent session); thin evidence base (one
-real product, two scenarios, about a week, plus four demo scenarios run once each); real
+real product, two scenarios, about a week, plus four demo scenarios and one third-party
+open-source target run once each); real
 token cost (~70–90k tokens for the judge alone on a five-step flow); coupled to Claude
 Code's browser tool names (see [docs/porting.md](docs/porting.md)); it answers "does the
 flow still work", never "why did it break"; and the progressive disclosure of scenarios and
-atoms is discipline enforced by prompt and lint, not a harness mechanism.
+atoms is discipline enforced by prompt and lint, not a harness mechanism — except the atom
+write gate, which *is* a harness mechanism wherever the runtime provides a memory layer (the agent
+then has no tool that can write `atoms/` at all; see `references/runtime-contract.md`). Runtimes
+without one fall back to the same rules, enforced by discipline.
 
 Not a replacement for Midscene, Browser Use or Playwright — a discipline layer that can
 sit on top of any of them. Midscene solves cheap deterministic replay and offers a

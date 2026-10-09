@@ -1,6 +1,8 @@
 ---
 name: todo-batch-add
 description: 演示应用「任务列表」连续新增：一口气加三条，刷新后三条都在、计数器和统计页都是 3。验的是连续写入会不会丢，和单条新增是两个场景。
+envs: [demo]
+default_env: demo
 ---
 
 # 场景：批量添加（演示）

@@ -1,0 +1,18 @@
+# Gitea 主流程的验收路线。格式说明见 todo-persistence/expect.yaml 头注。
+#
+# 这个实例跟着运行时一起跑在 zh-CN 下（「工单」= issue，「已关闭」= Closed），
+# 但 check 写的是事实不是字面文案——同一条事实换个语言、换个版本还是那条事实。
+
+goal: 新用户建的仓库、开的工单、留的评论、关掉的状态，四样都真的写在服务端，不是只渲染在页面上
+
+steps:
+  - go: 打开这条工单的详情页 context.issue_url，读取页面
+    check:
+      - 页面里出现工单标题 context.issue_title
+      - 这条工单的状态是已关闭，页面上能看到已关闭的状态标记
+      - 页面里出现评论正文 context.comment_body
+
+  - go: 打开 context.issues_url 这个工单列表页，读取列表
+    check:
+      - 列表里有一条标题正是 context.issue_title 的工单
+      - 这条工单在列表里也是关闭状态，不是开启中

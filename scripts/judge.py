@@ -33,6 +33,7 @@ PASS, FAIL, BLOCK = 0, 1, 2
 
 REF_RE = re.compile(r"\bcontext\.([A-Za-z_][A-Za-z0-9_]*)")
 NOT_A_KEY = {"yaml", "yml", "xxx"}          # 「context.yaml」是文件名，不是引用
+PUNCT_RE = re.compile(r"[^\w]+", re.UNICODE)
 
 
 def load_yaml(p: Path):
@@ -42,6 +43,16 @@ def load_yaml(p: Path):
 
 def norm(s) -> str:
     return str(s or "").strip()
+
+
+def norm_key(s) -> str:
+    """给镜像比对用的比较键：连标点空白一起去掉。
+
+    裁判抄 go/fact 时把逗号改写成括号这类无害重排版，字面内容没变，不该算「不镜像」
+    （2026-09-17 实测踩过：只因这一个标点差异，就把已经每条都 pass 的场景判成了 BLOCK）。
+    真正的防造假底线是文字内容本身，不是标点写法——所以比较键去标点，但 emit 时仍然
+    显示 norm() 过的原文，人看报告不受影响。"""
+    return PUNCT_RE.sub("", norm(s))
 
 
 def main() -> int:
@@ -120,16 +131,17 @@ def main() -> int:
 
     # 3) 逐步、逐条镜像校验
     for si, (es, js) in enumerate(zip(exp_steps, jud_steps), 1):
-        e_go, j_go = norm(es.get("go")), norm(js.get("go"))
+        e_go = norm(es.get("go"))
         e_checks = [norm(c) for c in (es.get("check") or [])]
         j_checks = js.get("check") or []
         reached = js.get("reached")
+        # go 一律以 expect.yaml 为准，judgment 里写不写都不影响判定。
+        # 以前这里要求逐字镜像 go，两次栽在同一类事上：一次是逗号被抄成括号，
+        # 一次是 196 字的 go 被裁判用「……」缩写。而 go 是导航指令、不是断言——
+        # 真正的断言是下面每条 check 的 fact，那些仍然逐字镜像。让裁判重抄一遍长导航，
+        # 换不来任何防造假的保证（抄对了也不证明它真去过），却实打实制造假阳性。
         emit(f"── 第 {si} 步: {e_go}  (reached={reached})")
 
-        if j_go != e_go:
-            block(f"第 {si} 步的 go 文本不一致\n    期望: {e_go}\n    裁判: {j_go}")
-            n_block += len(e_checks) - 1
-            continue
         if reached not in (True, False):
             block(f"第 {si} 步的 reached 必须是 true/false，实际是 {reached!r}")
             n_block += len(e_checks) - 1
@@ -146,7 +158,7 @@ def main() -> int:
             evidence = norm(jc.get("evidence"))
             note = norm(jc.get("note"))
 
-            if j_fact != e_fact:
+            if norm_key(j_fact) != norm_key(e_fact):
                 block(f"{tag} fact 文本不一致\n    期望: {e_fact}\n    裁判: {j_fact}")
             elif result not in ("pass", "fail", "blocked"):
                 block(f"{tag} result 非法: {result!r}  —— {e_fact}")

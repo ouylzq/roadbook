@@ -1,6 +1,8 @@
 ---
 name: todo-persistence
 description: 演示应用「任务列表」的基本流程：新增一条任务，刷新后它还在、统计页也把它算进去了。验的是新增到底写进了存储还是只渲染了一下。
+envs: [demo]
+default_env: demo
 ---
 
 # 场景：任务持久化（演示）

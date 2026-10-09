@@ -122,13 +122,66 @@ def check_intent(path: Path) -> list[str]:
     return fm_errs
 
 
+CONTEXT_REF_RE = re.compile(r"\bcontext\.([A-Za-z_][A-Za-z0-9_]*)")
+NOT_A_KEY = {"yaml", "yml", "xxx"}          # 「context.yaml」是文件名，不是引用
+FACTS_HEADING = "## 留给裁判的事实"
+
+
+def context_refs(expect: dict) -> set[str]:
+    """验收路线里引用了哪些 context.xxx（只认 steps 里的，注释不算）。"""
+    keys: set[str] = set()
+    for step in expect.get("steps") or []:
+        if not isinstance(step, dict):
+            continue
+        for text in [step.get("go", ""), *(step.get("check") or [])]:
+            keys.update(k for k in CONTEXT_REF_RE.findall(str(text)) if k not in NOT_A_KEY)
+    return keys
+
+
+def declared_facts(intent_text: str) -> set[str]:
+    """intent.md「留给裁判的事实」那一节里人点过名的键。"""
+    section = ""
+    if FACTS_HEADING in intent_text:
+        tail = intent_text.split(FACTS_HEADING, 1)[1]
+        section = tail.split("\n## ", 1)[0]
+    return set(re.findall(r"^\s*-?\s*`?([A-Za-z_][A-Za-z0-9_]*)`?\s*:", section, re.M))
+
+
+def check_context_pairing(expect_path: Path) -> list[str]:
+    """验收路线引用的变量必须在 intent.md 的「留给裁判的事实」里声明过。
+
+    这是**成对**的一根线，缺一半的后果很重：runner 拿不到"要交哪些值"的清单、
+    裁判取不到证，整场判 BLOCK（judge.py 里"context.yaml 里没有 xxx"是最大单一失败原因）。
+    它静态可知，就该在这里拦住，而不是等烧完一次浏览器跑批才发现。
+    反向（声明了却没引用）只警告不拦——有些值是 runner 侧要用的，不必都出现在验收路线里。
+    """
+    try:
+        expect = yaml.safe_load(expect_path.read_text(encoding="utf-8")) or {}
+    except yaml.YAMLError:
+        return []
+    refs = context_refs(expect)
+    if not refs:
+        return []
+    intent_path = expect_path.parent / "intent.md"
+    if not intent_path.exists():
+        return []
+    declared = declared_facts(intent_path.read_text(encoding="utf-8"))
+    missing = sorted(refs - declared)
+    if not missing:
+        return []
+    listed = "、".join(f"`{k}`" for k in missing)
+    return [f"{expect_path.relative_to(ROOT)}: 引用了 {listed}，但 intent.md 的「{FACTS_HEADING[3:]}」"
+            f"里没有声明——runner 不会主动交这个值，裁判取不到就判 BLOCK。"
+            f"在该节补上同名的一行，或把写死的值直接写进验收路线。"]
+
+
 def main() -> int:
     if not SCENARIOS:
         print("scenarios/ 下没有找到任何场景")
         return 1
     bad = 0
     for path in SCENARIOS:
-        errs = check(path) + check_intent(path.parent / "intent.md")
+        errs = check(path) + check_intent(path.parent / "intent.md") + check_context_pairing(path)
         print(f"  {'ok  ' if not errs else '失败'} {path.parent.relative_to(ROOT)}/  (expect.yaml + intent.md)")
         for e in errs:
             print(f"       {e}")

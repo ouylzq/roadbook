@@ -2,8 +2,9 @@
 runs/*
 !runs/.gitkeep
 
-# 环境配置和凭据永不提交。
-config/env.json
+# 凭据永不提交。config/env.json 是例外：开源版自带的那份只有 demo 靶子的
+# localhost 地址，没有任何真实环境、账号或密钥——你本地改出来的真实环境配置
+# 请放到这个路径之外，或者临时改 ignore，别把它提交进来。
 .env
 .env.*
 !.env.example
@@ -14,3 +15,6 @@ __pycache__/
 .venv/
 .idea/
 .vscode/
+
+# 本地开源靶子（Gitea）的二进制、数据库、仓库。rm -rf 就是全新实例。
+targets/gitea/.run/
