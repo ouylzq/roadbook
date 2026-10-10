@@ -17,7 +17,7 @@ import yaml
 
 ROOT = Path(__file__).resolve().parent.parent
 JUDGE = ROOT / "scripts" / "judge.py"
-SCENARIO = ROOT / "scenarios" / "todo-persistence"
+SCENARIO = ROOT / "scenarios" / "demo-app" / "todo-persistence"
 
 PASS, FAIL, BLOCK = 0, 1, 2
 REF_RE = re.compile(r"\bcontext\.([A-Za-z_][A-Za-z0-9_]*)")
