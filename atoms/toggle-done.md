@@ -25,4 +25,4 @@ header 计数器「未完成 N」减一。
 
 ## 出处
 
-- `scenarios/todo-complete/playbook.md` 第 3 步
+- `scenarios/demo-app/todo-complete/playbook.md` 第 3 步

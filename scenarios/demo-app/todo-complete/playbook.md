@@ -36,5 +36,5 @@
    【目的】给裁判留事实，然后交棒
    【锚点】—
    【动作】写 `runs/<本次>/context.yaml`（task_titles、done_title）；按 SKILL.md 第 6 步新起裁判；跑
-     `scripts/judge.py scenarios/todo-complete runs/<本次>`
+     `scripts/judge.py scenarios/demo-app/todo-complete runs/<本次>`
    【到位标志】`runs/<本次>/judgment.yaml` 出现，judge.py 给出退出码

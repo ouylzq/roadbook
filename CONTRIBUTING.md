@@ -7,15 +7,17 @@
 
 ## 交一个场景
 
-一个场景 = `scenarios/<名>/` 下一个目录、两份人写的文件：
+先给你的被测对象建一个**项目**文件夹（一对多场景），场景是它下面的一个目录、
+两份人写的文件。场景目录名全仓库唯一——项目只是分组，不是命名空间：
 
 ```
-scenarios/<场景名>/
+scenarios/<项目名>/<场景名>/
   intent.md     目标、固定参数、红线、造数、清理——不写步骤
   expect.yaml   goal + 有序 steps，每步只有 go 和 check 两个键
 ```
 
-照 `scenarios/todo-persistence/` 抄格式，然后：
+只有一个场景时也可以平铺成 `scenarios/<场景名>/`，两种混用都合法。
+照 `scenarios/demo-app/todo-persistence/` 抄格式，然后：
 
 ```bash
 python3 tests/test_examples.py     # 格式对不对

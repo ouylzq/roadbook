@@ -13,7 +13,11 @@ from pathlib import Path
 import yaml
 
 ROOT = Path(__file__).resolve().parent.parent
-SCENARIOS = sorted((ROOT / "scenarios").glob("*/expect.yaml"))
+# 布局两认：scenarios/<项目>/<场景>/ 和旧式平铺 scenarios/<场景>/，混用也行。
+SCENARIOS = sorted(
+    set((ROOT / "scenarios").glob("*/expect.yaml"))
+    | set((ROOT / "scenarios").glob("*/*/expect.yaml"))
+)
 
 # 一步只允许这两个键。多一个键就是把"怎么取证"漏进了"验什么"。
 ALLOWED_STEP_KEYS = {"go", "check"}
@@ -175,6 +179,15 @@ def check_context_pairing(expect_path: Path) -> list[str]:
             f"在该节补上同名的一行，或把写死的值直接写进验收路线。"]
 
 
+def duplicate_names() -> list[str]:
+    """场景目录名全仓库唯一——项目只是分组不是命名空间，重名会废掉按名挑选。"""
+    seen: dict[str, list[Path]] = {}
+    for path in SCENARIOS:
+        seen.setdefault(path.parent.name, []).append(path.parent)
+    return [f"{name}: 重名于 " + "、".join(str(p.relative_to(ROOT)) for p in dirs)
+            for name, dirs in sorted(seen.items()) if len(dirs) > 1]
+
+
 def main() -> int:
     if not SCENARIOS:
         print("scenarios/ 下没有找到任何场景")
@@ -186,6 +199,9 @@ def main() -> int:
         for e in errs:
             print(f"       {e}")
         bad += bool(errs)
+    for e in duplicate_names():
+        print(f"       错误 {e}")
+        bad += 1
     print(f"\n{len(SCENARIOS) - bad}/{len(SCENARIOS)} 个场景格式合规")
     return 1 if bad else 0
 

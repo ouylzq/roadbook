@@ -29,11 +29,12 @@ steps:
 
 代码只有一百多行的记分器和三个索引脚本。这个仓库真正交付的是**一组约定**：文件放哪、写成什么样、
 谁读谁不读、结论怎么算。任何照着这组约定跑的实现——换浏览器工具、换模型、换成 headless 程序——
-产出的 run 都能互相比对、互相复核。规范一共七条，每条对应一份文件：
+产出的 run 都能互相比对、互相复核。规范一共八条，每条对应一份文件或一层目录：
 
 | 规范 | 文件 | 定了什么 |
 |---|---|---|
-| 场景 | `scenarios/<名>/` | 三份文件：`intent.md`（frontmatter 一句话 + 人定边界，不写步骤）、`expect.yaml`、`playbook.md`。值不同就另开目录 |
+| 项目 | `scenarios/<项目>/` | 一个被测对象（产品/应用/站点）一个文件夹，一对多场景。只是分组不是命名空间：场景目录名全仓库唯一，换了项目也不许重名 |
+| 场景 | `scenarios/<项目>/<名>/`（旧式平铺 `scenarios/<名>/` 仍然合法） | 三份文件：`intent.md`（frontmatter 一句话 + 人定边界，不写步骤）、`expect.yaml`、`playbook.md`。值不同就另开目录 |
 | 期望 | `expect.yaml` | `goal` + 有序 `steps`，每步只有 `go` 和 `check` 两个键；`context.*` 只引用 runner 跑时才知道的事实，期望值写死 |
 | 裁判 | `references/judge-protocol.md` | 独立 agent；每屏自己加载（唯一例外：加载就会消失的纯前端状态，且那一步不许断言后端事实）；证据引原文；找不到是 blocked 不是 fail；输出 `judgment.yaml` 按顺序与 expect 逐条对应，`fact` 逐字不改（`go` 不用抄） |
 | 记分 | `scripts/judge.py` | 退出码 0 PASS / 1 FAIL / 2 BLOCK，只查完备与镜像，不碰语义 |
@@ -177,14 +178,18 @@ targets/gitea/launch.sh          # 本地起一个 Gitea 实例（:3100，单文
 
 ## 接到你自己的产品
 
-一个场景 = 一个目录，里面三份文件，人写两份、agent 写一份：
+先建一个**项目**文件夹（一个被测对象一个，一对多场景），再往里放场景。一个场景 = 一个目录，
+里面三份文件，人写两份、agent 写一份：
 
 ```
-scenarios/<场景名>/
-  intent.md      【你写】开头一段 frontmatter（name、一句话 description），正文是目标、固定参数、红线、造数、清理——不写步骤
-  expect.yaml    【你写】裁判的验收路线：按顺序去哪、看什么
-  playbook.md    【agent 写】首跑探索后自动生成，之后每次回放它、失配时更新它
+scenarios/<项目名>/           ← 项目 = 被测对象，比如你的产品名
+  <场景名>/
+    intent.md      【你写】开头一段 frontmatter（name、一句话 description），正文是目标、固定参数、红线、造数、清理——不写步骤
+    expect.yaml    【你写】裁判的验收路线：按顺序去哪、看什么
+    playbook.md    【agent 写】首跑探索后自动生成，之后每次回放它、失配时更新它
 ```
+
+只有一两个场景时懒得建项目层？旧式平铺 `scenarios/<场景名>/` 仍然合法，两种可以混用。
 
 1. 建目录，写 `intent.md` 和 `expect.yaml`。`python3 tests/test_examples.py` 会告诉你格式对不对，
    比如 check 写成了「创建成功」这种主题词而不是页面上能读到的事实。
@@ -269,14 +274,15 @@ scripts/
   scenarios.py                    列场景供挑选
   atoms.py                        列原子供回忆
   atoms_status.py                 从 PASS run 推导原子状态，生成 atoms/STATUS.md
-scenarios/                        自带的几个场景，每个一个目录
-  todo-persistence/                 加一条，刷新后还在
-  todo-batch-add/                   连加三条——和上面是两个场景，不是一个场景带参数
-  todo-complete/                    勾一条已完成，状态是存下来的
-  todo-reset/                       重置按钮真清了存储，不只是画空
-  gitea-issue-flow/                 开源产品主流程：注册 → 建仓库 → 开工单 → 评论 → 关闭
-  github-repo-flow/                 公网只读：GitHub 仓库 → 工单列表 → 工单详情
-  gov-policy-doc/                   公网只读：中国政府网政策文件，读一整套官方元数据
+scenarios/                        自带的场景，按被测对象分项目，一对多
+  demo-app/                         演示应用（上面 demo-app/ 那个）的项目
+    todo-persistence/                 加一条，刷新后还在
+    todo-batch-add/                   连加三条——和上面是两个场景，不是一个场景带参数
+    todo-complete/                    勾一条已完成，状态是存下来的
+    todo-reset/                       重置按钮真清了存储，不只是画空
+  gitea/gitea-issue-flow/           开源产品主流程：注册 → 建仓库 → 开工单 → 评论 → 关闭
+  github/github-repo-flow/          公网只读：GitHub 仓库 → 工单列表 → 工单详情
+  gov-site/gov-policy-doc/          公网只读：中国政府网政策文件，读一整套官方元数据
 atoms/                            agent 沉淀的被测产品记忆；README 是规矩，STATUS 是账本
 config/
   env.json                        环境说明：demo 靶子的地址（只有 localhost，没有密钥）；

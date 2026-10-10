@@ -1,7 +1,7 @@
 # 一次真实 run 留下的东西
 
 这是 2026-09-09 在本仓库的演示场景上真跑出来的一套产物，原样拷过来（`runs/` 本身被 gitignore）。
-runner 按 `scenarios/todo-persistence/playbook.md` 回放四步，裁判是独立 agent，
+runner 按 `scenarios/demo-app/todo-persistence/playbook.md` 回放四步，裁判是独立 agent，
 `judge.py` 给出退出码 0。
 
 | 文件 | 谁写的 | 看什么 |

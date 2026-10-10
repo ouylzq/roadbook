@@ -24,4 +24,4 @@ description: 演示应用「任务列表」的清空按钮：任务卡片下方�
 
 ## 出处
 
-- `scenarios/todo-persistence/playbook.md` 第 1 步
+- `scenarios/demo-app/todo-persistence/playbook.md` 第 1 步

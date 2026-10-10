@@ -61,7 +61,7 @@ claude -p "/roadbook <场景>" --bare --add-dir <repo> \
 
 # 第二棒：裁判。**全新进程、上下文干净**，只给协议 + expect.yaml + context.yaml。
 claude -p "你是裁判。照 references/judge-protocol.md 执行，产出 <run>/judgment.yaml。
-场景验收路线：scenarios/<场景>/expect.yaml
+场景验收路线：scenarios/<项目>/<场景>/expect.yaml
 本次事实：<run>/context.yaml
 被测环境：<域名>
 每一屏你自己加载，证据引页面原文；evidence/note/how 一律用块标量 |- 。
@@ -70,7 +70,7 @@ claude -p "你是裁判。照 references/judge-protocol.md 执行，产出 <run>
   --permission-mode dontAsk --max-turns 120 --output-format json
 
 # 第三棒：记分。
-python3 scripts/judge.py scenarios/<场景> <run>
+python3 scripts/judge.py scenarios/<项目>/<场景> <run>
 ```
 
 两个进程比一个 subagent 的隔离**更彻底**：各自的上下文从头就是干净的。

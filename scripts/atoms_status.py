@@ -55,7 +55,12 @@ def atom_names(root: Path) -> list[str]:
 def playbook_refs(root: Path) -> dict[str, list[str]]:
     """场景名 → 该路书引用的原子名列表（去掉 —）。"""
     refs: dict[str, list[str]] = {}
-    for pb in (root / "scenarios").glob("*/playbook.md"):
+    # 布局两认：scenarios/<项目>/<场景>/ 和旧式平铺 scenarios/<场景>/，混用也行。
+    playbooks = sorted(
+        set((root / "scenarios").glob("*/playbook.md"))
+        | set((root / "scenarios").glob("*/*/playbook.md"))
+    )
+    for pb in playbooks:
         names = [m for m in REF_RE.findall(pb.read_text(encoding="utf-8")) if m != "—"]
         refs[pb.parent.name] = names
     return refs

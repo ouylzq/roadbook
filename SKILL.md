@@ -143,8 +143,12 @@ description: 路书——给 agent 用的 UI 主流程回归。在真实浏览�
 
 ## 场景文件结构
 
+`scenarios/` 下先按被测对象分**项目**（一对多场景），场景是项目里的一个目录。
+只有一两个场景时平铺在 `scenarios/<场景名>/` 也合法，两种可混用。场景目录名全仓库
+唯一——项目只是分组，不是命名空间。
+
 ```
-scenarios/<场景名>/
+scenarios/<项目名>/<场景名>/
   intent.md      【人维护】frontmatter 一句话 description（scenarios.py 第 1 层）+「什么时候跑」（第 2 层）+ runner 侧的人定边界：目标、固定参数、红线、造数、清理——不写步骤
   expect.yaml    【人维护】验什么：一条有序的验收路线，裁判照它走
   playbook.md    【agent 维护】已经勘明白的步骤，边勘边追加；可能只记到一半，那也照样用

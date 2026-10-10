@@ -29,7 +29,11 @@ from lint_atoms import TOOL_NAMES
 
 ROOT = Path(__file__).resolve().parent.parent
 ATOMS = {p.stem for p in (ROOT / "atoms").glob("*.md")} - {"README", "STATUS"}
-PLAYBOOKS = sorted((ROOT / "scenarios").glob("*/playbook.md"))
+# 布局两认：scenarios/<项目>/<场景>/ 和旧式平铺 scenarios/<场景>/，混用也行。
+PLAYBOOKS = sorted(
+    set((ROOT / "scenarios").glob("*/playbook.md"))
+    | set((ROOT / "scenarios").glob("*/*/playbook.md"))
+)
 
 STEP_RE = re.compile(r"^(\d+)\.\s", re.M)
 REQUIRED = ("【目的】", "【锚点】", "【动作】", "【到位标志】")

@@ -32,6 +32,6 @@
    【锚点】—
    【动作】写 `runs/<本次>/context.yaml`（只有 task_title，就是你实际输入的标题）；
      按 SKILL.md 第 6 步新起裁判 agent；跑
-     `scripts/judge.py scenarios/todo-persistence runs/<本次>`
+     `scripts/judge.py scenarios/demo-app/todo-persistence runs/<本次>`
    【到位标志】`runs/<本次>/judgment.yaml` 出现，judge.py 给出退出码
    ⚠️ runner 到这里就不再判断任何事。

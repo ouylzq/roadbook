@@ -28,4 +28,4 @@ description: 演示应用「任务列表」的新增入口：顶部输入框加�
 
 ## 出处
 
-- `scenarios/todo-persistence/playbook.md` 第 2 步
+- `scenarios/demo-app/todo-persistence/playbook.md` 第 2 步
